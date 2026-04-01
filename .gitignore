@@ -1,0 +1,39 @@
+# Build output
+build/
+output/
+
+# VSCode
+.vscode/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Compiled binaries
+*.exe
+*.dll
+*.o
+*.obj
+*.a
+
+# Qt generated
+*_autogen/
+mocs_compilation.cpp
+
+# Logs and debug
+*.log
+*.txt.bak
+
+# OS
+Thumbs.db
+desktop.ini
+
+# other
+screens/
+dialogs/
+S57 viewer/
+CLAUDE.md
