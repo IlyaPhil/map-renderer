@@ -2,7 +2,6 @@
 #include <QMainWindow>
 #include <QMap>
 #include "MapFeature.h"
-#include "S57Loader.h"
 
 class MapWidget;
 class QCheckBox;
@@ -15,7 +14,6 @@ public:
 
 private:
     MapWidget* m_mapWidget = nullptr;
-    S57Loader  m_loader;
     QMap<LayerType, QCheckBox*> m_checkboxes;
     QCheckBox* m_namesCheckbox = nullptr;
 

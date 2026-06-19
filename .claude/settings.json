@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($PWD)",
+      "PowerShell(Write-Host \\(Get-Location\\).Path)",
+      "Bash(/c/msys64/mingw64/bin/mingw32-make.exe)",
+      "Bash(/c/msys64/mingw64/bin/cmake.exe .. -G \"MinGW Makefiles\")",
+      "Bash(/c/msys64/mingw64/bin/g++.exe -std=c++14 -I/c/msys64/mingw64/include/qt5 -I/c/msys64/mingw64/include/qt5/QtWidgets -I/c/msys64/mingw64/include/qt5/QtCore -I/c/msys64/mingw64/include/gdal -I/e/map-renderer/src -I/e/map-renderer/build/MapRenderer_autogen/include -x c++ /e/map-renderer/build/MapRenderer_autogen/UVLADIE3JM/moc_MapWidget.cpp -o /tmp/moc_mw.o)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(echo \"exit $?\")",
+      "Read(//tmp/**)",
+      "Bash(echo '#include <stdio.h>')",
+      "Bash(echo 'int main\\(\\){return 0;}')",
+      "Bash(/c/msys64/mingw64/bin/g++.exe /tmp/test.cpp -o /tmp/test.exe)",
+      "Bash(echo \"exit: $?\")",
+      "PowerShell($env:PATH = \"C:\\\\msys64\\\\mingw64\\\\bin;\" + $env:PATH; $result = & \"C:\\\\msys64\\\\mingw64\\\\bin\\\\mingw32-make.exe\" -C \"E:\\\\map-renderer\\\\build\" 2>&1; $result | ForEach-Object { $_.ToString\\(\\) })",
+      "PowerShell($env:PATH = \"C:\\\\msys64\\\\mingw64\\\\bin;\" + $env:PATH; & \"C:\\\\msys64\\\\mingw64\\\\bin\\\\mingw32-make.exe\" -C \"E:\\\\map-renderer\\\\build\" 2>&1 | ForEach-Object { $_.ToString\\(\\) })"
+    ]
+  }
+}

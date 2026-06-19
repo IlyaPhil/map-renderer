@@ -9,6 +9,8 @@
 #include <QStatusBar>
 #include <QMessageBox>
 #include <QFileInfo>
+#include <QFile>
+#include <QFileDialog>
 #include <QApplication>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -18,7 +20,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 }
 
 void MainWindow::setupUI() {
-    m_mapWidget = new MapWidget(this);
+    m_mapWidget = new MapWidget(QList<QString>(), this);
     setCentralWidget(m_mapWidget);
 
     connect(m_mapWidget, &MapWidget::coordinatesChanged,
@@ -32,6 +34,31 @@ void MainWindow::setupUI() {
     QWidget* panel = new QWidget;
     QVBoxLayout* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(8, 8, 8, 8);
+
+    // Кнопка "Открыть" — очищает всё и загружает выбранные файлы заново
+    QPushButton* openBtn = new QPushButton("Открыть карту", panel);
+    connect(openBtn, &QPushButton::clicked, [this]() {
+        QStringList filePaths = QFileDialog::getOpenFileNames(
+            this, "Открыть карты S57", "", "S57 Charts (*.000);;Все файлы (*)"
+        );
+        if (filePaths.isEmpty()) return;
+        m_mapWidget->clearCharts();
+        for (const QString& fp : filePaths)
+            loadChart(fp);
+    });
+    layout->addWidget(openBtn);
+
+    // Кнопка "Добавить" — добавляет новые файлы к уже открытым
+    QPushButton* addBtn = new QPushButton("Добавить карту", panel);
+    connect(addBtn, &QPushButton::clicked, [this]() {
+        QStringList filePaths = QFileDialog::getOpenFileNames(
+            this, "Добавить карты S57", "", "S57 Charts (*.000);;Все файлы (*)"
+        );
+        for (const QString& fp : filePaths)
+            loadChart(fp);
+    });
+    layout->addWidget(addBtn);
+    layout->addSpacing(6);
 
     const QList<QPair<LayerType, QString>> layers = {
         {LayerType::Coastline,   "Береговая линия"},
@@ -92,17 +119,20 @@ void MainWindow::loadChart(const QString& filePath) {
     statusBar()->showMessage("Загрузка: " + filePath + " ...");
     qApp->processEvents();
 
-    if (!m_loader.load(filePath)) {
+    // Читаем файл в память и кодируем в base64 — так же, как данные от сервера
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
         QMessageBox::critical(this, "Ошибка загрузки",
-                              "Не удалось открыть карту:\n" + m_loader.error());
+                              "Не удалось открыть файл:\n" + filePath);
         statusBar()->showMessage("Ошибка загрузки");
         return;
     }
+    QString base64 = QString::fromLatin1(file.readAll().toBase64());
 
-    m_mapWidget->setFeatures(m_loader.features(), m_loader.bounds());
+    m_mapWidget->addChart(base64);
     setWindowTitle("S57 Chart Viewer — " + QFileInfo(filePath).fileName());
     statusBar()->showMessage(
-        QString("Загружено объектов: %1").arg(m_loader.features().size())
+        QString("Загружено объектов: %1").arg(m_mapWidget->featureCount())
     );
 }
 

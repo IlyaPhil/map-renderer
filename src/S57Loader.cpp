@@ -43,25 +43,35 @@ LayerType S57Loader::classifyLayer(const QString& name) {
     return mapping.value(name, LayerType::Unknown);
 }
 
-bool S57Loader::load(const QString& filePath) {
-    CPLSetConfigOption("GDAL_DATA", "C:/msys64/mingw64/share/gdal");
-    GDALAllRegister();
+void S57Loader::clear() {
+    m_features.clear();
+    m_bounds = QRectF();
+    m_error.clear();
+}
 
-    GDALDataset* ds = static_cast<GDALDataset*>(
-        GDALOpenEx(filePath.toUtf8().constData(), GDAL_OF_VECTOR,
-                   nullptr, nullptr, nullptr)
-    );
-
-    if (!ds) {
-        m_error = "Не удалось открыть файл: " + filePath;
-        return false;
-    }
-
+// Пересчёт общего географического охвата по всем накопленным объектам
+void S57Loader::recomputeBounds() {
     double minLon =  std::numeric_limits<double>::max();
     double minLat =  std::numeric_limits<double>::max();
     double maxLon = -std::numeric_limits<double>::max();
     double maxLat = -std::numeric_limits<double>::max();
 
+    for (const auto& f : m_features) {
+        for (const auto& pt : f.points) {
+            minLon = qMin(minLon, pt.x());
+            maxLon = qMax(maxLon, pt.x());
+            minLat = qMin(minLat, pt.y());
+            maxLat = qMax(maxLat, pt.y());
+        }
+    }
+
+    if (!m_features.isEmpty())
+        m_bounds = QRectF(QPointF(minLon, minLat), QPointF(maxLon, maxLat));
+}
+
+// Общий код обхода слоёв GDAL-датасета и извлечения объектов в m_features.
+// Вызывается как из load(), так и из loadFromBase64().
+void S57Loader::processDataset(GDALDataset* ds) {
     for (int i = 0; i < ds->GetLayerCount(); i++) {
         OGRLayer* ogrLayer = ds->GetLayer(i);
         if (!ogrLayer) continue;
@@ -100,24 +110,75 @@ bool S57Loader::load(const QString& filePath) {
             OGRFeature::DestroyFeature(feat);
         }
     }
+}
 
-    GDALClose(ds);
+bool S57Loader::load(const QString& filePath) {
+    CPLSetConfigOption("GDAL_DATA", "C:/msys64/mingw64/share/gdal");
+    GDALAllRegister();
 
-    // Compute bounding box
-    for (const auto& f : m_features) {
-        for (const auto& pt : f.points) {
-            minLon = qMin(minLon, pt.x());
-            maxLon = qMax(maxLon, pt.x());
-            minLat = qMin(minLat, pt.y());
-            maxLat = qMax(maxLat, pt.y());
-        }
+    GDALDataset* ds = static_cast<GDALDataset*>(
+        GDALOpenEx(filePath.toUtf8().constData(), GDAL_OF_VECTOR,
+                   nullptr, nullptr, nullptr)
+    );
+
+    if (!ds) {
+        m_error = "Не удалось открыть файл: " + filePath;
+        return false;
     }
 
-    if (!m_features.isEmpty())
-        m_bounds = QRectF(QPointF(minLon, minLat), QPointF(maxLon, maxLat));
+    processDataset(ds);
+    GDALClose(ds);
+    recomputeBounds();
 
-    qDebug() << "Loaded" << m_features.size() << "features, bounds:" << m_bounds;
+    qDebug() << "Загружено из файла" << m_features.size() << "объектов, bounds:" << m_bounds;
     return !m_features.isEmpty();
+}
+
+bool S57Loader::loadFromBase64(const QString& base64) {
+    CPLSetConfigOption("GDAL_DATA", "C:/msys64/mingw64/share/gdal");
+    GDALAllRegister();
+
+    // Декодируем строку base64 в бинарные данные S57-файла
+    QByteArray data = QByteArray::fromBase64(base64.toLatin1());
+    if (data.isEmpty()) {
+        m_error = "Пустые данные после декодирования base64";
+        return false;
+    }
+
+    // Путь во временной виртуальной файловой системе GDAL (только в памяти)
+    const char* vsiPath = "/vsimem/s57_import.000";
+
+    // Регистрируем буфер как виртуальный файл.
+    // FALSE означает: владелец памяти — мы (QByteArray), GDAL только читает.
+    VSILFILE* vsiFile = VSIFileFromMemBuffer(
+        vsiPath,
+        reinterpret_cast<GByte*>(data.data()),
+        static_cast<vsi_l_offset>(data.size()),
+        FALSE
+    );
+    if (!vsiFile) {
+        m_error = "Не удалось создать виртуальный файл GDAL из base64-данных";
+        return false;
+    }
+    VSIFCloseL(vsiFile);  // закрываем дескриптор — GDAL открывает файл сам через GDALOpenEx
+
+    GDALDataset* ds = static_cast<GDALDataset*>(
+        GDALOpenEx(vsiPath, GDAL_OF_VECTOR, nullptr, nullptr, nullptr)
+    );
+
+    if (!ds) {
+        VSIUnlink(vsiPath);  // убираем виртуальный файл даже при ошибке
+        m_error = "Не удалось разобрать S57 из base64-данных";
+        return false;
+    }
+
+    processDataset(ds);
+    GDALClose(ds);
+    VSIUnlink(vsiPath);  // освобождаем виртуальный файл из памяти GDAL
+    recomputeBounds();
+
+    qDebug() << "Загружено из base64, всего объектов:" << m_features.size() << ", bounds:" << m_bounds;
+    return true;
 }
 
 void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,

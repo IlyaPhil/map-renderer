@@ -3,8 +3,9 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QResizeEvent>
+#include <QDebug>
 
-MapWidget::MapWidget(QWidget* parent) : QWidget(parent) {
+MapWidget::MapWidget(const QList<QString>& charts, QWidget* parent) : QWidget(parent) {
     setMouseTracking(true);
     setBackgroundRole(QPalette::Base);
     setAutoFillBackground(true);
@@ -17,12 +18,36 @@ MapWidget::MapWidget(QWidget* parent) : QWidget(parent) {
     m_layerVisible[LayerType::NavLines]    = true;
     m_layerVisible[LayerType::LandObjects] = true;
     m_layerVisible[LayerType::Unknown]     = false;
+
+    // Загружаем все карты из переданного списка base64-строк
+    for (const QString& b64 : charts)
+        addChart(b64);
 }
 
-void MapWidget::setFeatures(const QVector<MapFeature>& features, const QRectF& bounds) {
-    m_features = features;
-    m_geoBounds = bounds;
-    fitAll();
+void MapWidget::clearCharts() {
+    m_loader.clear();
+    m_features.clear();
+    m_geoBounds = QRectF();
+    update();
+}
+
+void MapWidget::addChart(const QString& base64data) {
+    // Запоминаем, была ли карта пустой до загрузки
+    bool wasEmpty = m_features.isEmpty();
+
+    if (!m_loader.loadFromBase64(base64data)) {
+        qDebug() << "addChart: ошибка загрузки —" << m_loader.error();
+        return;
+    }
+
+    // Синхронизируем кэш фич и bbox с загрузчиком (он накапливает всё внутри)
+    m_features = m_loader.features();
+    m_geoBounds = m_loader.bounds();
+
+    if (wasEmpty)
+        fitAll();  // первая карта — вписать в экран
+    else
+        update();  // последующие — не сбивать текущий вид
 }
 
 void MapWidget::setLayerVisible(LayerType layer, bool visible) {
