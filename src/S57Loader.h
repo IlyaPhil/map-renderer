@@ -30,7 +30,7 @@ private:
 
     static LayerType classifyLayer(const QString& className);
     void processGeometry(OGRGeometry* geom, const QString& name,
-                         double depth, LayerType layer);
+                         double depth, LayerType layer, const QString& s57class);
 
     // Обход всех слоёв открытого датасета GDAL и извлечение объектов
     void processDataset(GDALDataset* ds);

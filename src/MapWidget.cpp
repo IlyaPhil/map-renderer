@@ -4,6 +4,7 @@
 #include <QWheelEvent>
 #include <QResizeEvent>
 #include <QDebug>
+#include <QCoreApplication>
 
 MapWidget::MapWidget(const QList<QString>& charts, QWidget* parent) : QWidget(parent) {
     setMouseTracking(true);
@@ -22,13 +23,6 @@ MapWidget::MapWidget(const QList<QString>& charts, QWidget* parent) : QWidget(pa
     // Загружаем все карты из переданного списка base64-строк
     for (const QString& b64 : charts)
         addChart(b64);
-}
-
-void MapWidget::clearCharts() {
-    m_loader.clear();
-    m_features.clear();
-    m_geoBounds = QRectF();
-    update();
 }
 
 void MapWidget::addChart(const QString& base64data) {
@@ -50,6 +44,13 @@ void MapWidget::addChart(const QString& base64data) {
         update();  // последующие — не сбивать текущий вид
 }
 
+void MapWidget::clearCharts() {
+    m_loader.clear();
+    m_features.clear();
+    m_geoBounds = QRectF();
+    update();
+}
+
 void MapWidget::setLayerVisible(LayerType layer, bool visible) {
     m_layerVisible[layer] = visible;
     update();
@@ -58,6 +59,57 @@ void MapWidget::setLayerVisible(LayerType layer, bool visible) {
 void MapWidget::setNamesVisible(bool visible) {
     m_showNames = visible;
     update();
+}
+
+void MapWidget::setMarkerMode(MarkerMode mode) {
+    m_markerMode = mode;
+    update();
+}
+
+void MapWidget::setMarkerSize(int pixels) {
+    m_markerSize = pixels;
+    update();
+}
+
+// Возвращает иконку для заданного S57-класса.
+// Сначала ищет PNG-файл в папке icons/ рядом с exe.
+// Если файл не найден — генерирует цветную заглушку с аббревиатурой класса.
+QPixmap MapWidget::iconFor(const QString& s57class) {
+    if (s57class.isEmpty()) return QPixmap();
+
+    // Возвращаем из кэша, если уже загружали
+    if (m_iconCache.contains(s57class))
+        return m_iconCache[s57class];
+
+    // Пытаемся загрузить PNG из папки icons/ рядом с exe
+    QString path = QCoreApplication::applicationDirPath()
+                   + "/icons/" + s57class + ".png";
+    QPixmap px(path);
+
+    if (px.isNull()) {
+        // Генерируем заглушку: цветной круг с аббревиатурой класса
+        const int sz = 32;
+        px = QPixmap(sz, sz);
+        px.fill(Qt::transparent);
+
+        QPainter p(&px);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        // Буи — красные, навигационные знаки — оранжевые
+        QColor fill = s57class.startsWith("BOY")
+                      ? QColor(220, 30, 30)
+                      : QColor(180, 80, 0);
+        p.setBrush(fill);
+        p.setPen(QPen(Qt::white, 1.5));
+        p.drawEllipse(1, 1, sz - 2, sz - 2);
+
+        p.setPen(Qt::white);
+        p.setFont(QFont("Arial", 7, QFont::Bold));
+        p.drawText(QRect(0, 0, sz, sz), Qt::AlignCenter, s57class.left(3));
+    }
+
+    m_iconCache[s57class] = px;
+    return px;
 }
 
 void MapWidget::fitAll() {
@@ -117,7 +169,7 @@ QColor MapWidget::legendColor(LayerType layer) {
            ? s.fillColor : s.color;
 }
 
-// Returns water color based on minimum depth value (DRVAL1)
+// Цвет воды в зависимости от минимальной глубины (DRVAL1)
 static QColor depthColor(double drval1) {
     if (drval1 <= 0)  return QColor(175, 220, 235);
     if (drval1 < 2)   return QColor(155, 208, 228);
@@ -158,6 +210,23 @@ void MapWidget::drawFeature(QPainter& painter, const MapFeature& f) {
         }
         case MapFeature::Point: {
             QPointF pt = screen[0];
+
+            // Режим иконок: буи и навигационные знаки рисуются как PNG
+            if (m_markerMode == MarkerMode::Icons &&
+                (f.layer == LayerType::Beacons || f.layer == LayerType::Buoys)) {
+                QPixmap icon = iconFor(f.s57class);
+                if (!icon.isNull()) {
+                    int half = m_markerSize / 2;
+                    painter.drawPixmap(
+                        QRect(pt.x() - half, pt.y() - half,
+                              m_markerSize, m_markerSize),
+                        icon
+                    );
+                    break;
+                }
+            }
+
+            // Режим фигур (по умолчанию)
             painter.setPen(QPen(style.color, 1));
 
             if (f.layer == LayerType::Depths) {
@@ -190,7 +259,7 @@ void MapWidget::drawFeature(QPainter& painter, const MapFeature& f) {
         }
     }
 
-    // Object name label for point features
+    // Подпись названия объекта для точечных объектов
     if (m_showNames && !f.name.isEmpty() && f.geomType == MapFeature::Point) {
         QPointF pt = screen[0];
         painter.setPen(Qt::black);
@@ -205,7 +274,7 @@ void MapWidget::paintEvent(QPaintEvent*) {
 
     painter.fillRect(rect(), QColor(195, 220, 240));
 
-    // Areas: explicit z-order so land objects appear on top of depth areas
+    // Полигоны: явный z-порядок, чтобы суша перекрывала зоны глубин
     static const QList<LayerType> areaOrder = {
         LayerType::Depths,
         LayerType::Coastline,

@@ -11,6 +11,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QFileDialog>
+#include <QSpinBox>
 #include <QApplication>
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -104,6 +105,32 @@ void MainWindow::setupUI() {
     layout->addWidget(m_namesCheckbox);
 
     layout->addStretch();
+
+    // Спинбокс для изменения размера иконок навигационных знаков
+    QWidget* sizeRow = new QWidget(panel);
+    QHBoxLayout* sizeLayout = new QHBoxLayout(sizeRow);
+    sizeLayout->setContentsMargins(0, 0, 0, 0);
+    sizeLayout->addWidget(new QLabel("Размер знаков:", sizeRow));
+    QSpinBox* sizeBox = new QSpinBox(sizeRow);
+    sizeBox->setRange(8, 128);
+    sizeBox->setValue(24);
+    sizeBox->setSuffix(" px");
+    connect(sizeBox, QOverload<int>::of(&QSpinBox::valueChanged),
+            [this](int px) { m_mapWidget->setMarkerSize(px); });
+    sizeLayout->addWidget(sizeBox);
+    layout->addWidget(sizeRow);
+
+    // Кнопка переключения между режимами: фигуры ↔ иконки PNG
+    QPushButton* markerBtn = new QPushButton("Знаки: фигуры", panel);
+    markerBtn->setCheckable(true);
+    connect(markerBtn, &QPushButton::toggled, [this, markerBtn](bool icons) {
+        m_mapWidget->setMarkerMode(
+            icons ? MapWidget::MarkerMode::Icons
+                  : MapWidget::MarkerMode::Shapes
+        );
+        markerBtn->setText(icons ? "Знаки: иконки PNG" : "Знаки: фигуры");
+    });
+    layout->addWidget(markerBtn);
 
     QPushButton* fitBtn = new QPushButton("Показать всё", panel);
     connect(fitBtn, &QPushButton::clicked, m_mapWidget, &MapWidget::fitAll);

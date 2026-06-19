@@ -30,8 +30,9 @@ inline QString layerDisplayName(LayerType t) {
 struct MapFeature {
     enum GeomType { Point, Line, Area };
     GeomType geomType = Point;
-    QVector<QPointF> points;  // (lon, lat)
-    QString name;             // OBJNAM attribute
-    double depth = 0.0;       // sounding depth or DRVAL1 for DEPARE
+    QVector<QPointF> points;   // (lon, lat)
+    QString name;              // OBJNAM attribute
+    double depth = 0.0;        // sounding depth or DRVAL1 for DEPARE
     LayerType layer = LayerType::Unknown;
+    QString s57class;          // конкретный S57-класс: "BCNLAT", "BOYLAT", "LIGHTS" и т.д.
 };

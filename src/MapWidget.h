@@ -2,6 +2,7 @@
 #include <QWidget>
 #include <QMap>
 #include <QList>
+#include <QPixmap>
 #include "MapFeature.h"
 #include "S57Loader.h"
 
@@ -11,19 +12,26 @@ public:
     // charts — список карт в формате base64 (пустой список — пустой виджет)
     explicit MapWidget(const QList<QString>& charts = {}, QWidget* parent = nullptr);
 
-    // Добавить одну карту (строка base64, как от сервера).
-    // Если карта первая — вписывает всё в экран.
-    // Если карты уже есть — не сбивает текущий вид пользователя.
+    // Добавить одну карту (строка base64, как от сервера)
     void addChart(const QString& base64data);
 
     // Очистить все загруженные карты и начать с нуля
     void clearCharts();
 
+    // Количество загруженных объектов (для статусной строки)
+    int featureCount() const { return m_features.size(); }
+
     void setLayerVisible(LayerType layer, bool visible);
     void setNamesVisible(bool visible);
 
-    // Количество загруженных объектов (для статусной строки)
-    int featureCount() const { return m_features.size(); }
+    // Режим отображения навигационных знаков (буи и створные знаки)
+    enum class MarkerMode { Shapes, Icons };
+
+    // Переключить режим отображения знаков с перерисовкой
+    void setMarkerMode(MarkerMode mode);
+
+    // Установить размер иконки в пикселях с перерисовкой
+    void setMarkerSize(int pixels);
 
     static QColor legendColor(LayerType layer);
 
@@ -55,6 +63,14 @@ private:
 
     QMap<LayerType, bool> m_layerVisible;
     bool m_showNames = true;
+
+    MarkerMode m_markerMode = MarkerMode::Shapes;  // текущий режим знаков
+    int m_markerSize = 24;                          // размер иконки в пикселях
+    QMap<QString, QPixmap> m_iconCache;             // кэш загруженных/сгенерированных иконок
+
+    // Вернуть иконку для S57-класса: сначала ищет файл icons/<класс>.png,
+    // при отсутствии генерирует цветную заглушку
+    QPixmap iconFor(const QString& s57class);
 
     QPointF geoToScreen(const QPointF& geo) const;
     QPointF screenToGeo(const QPointF& screen) const;

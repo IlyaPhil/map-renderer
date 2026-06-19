@@ -14,7 +14,8 @@
       "Bash(/c/msys64/mingw64/bin/g++.exe /tmp/test.cpp -o /tmp/test.exe)",
       "Bash(echo \"exit: $?\")",
       "PowerShell($env:PATH = \"C:\\\\msys64\\\\mingw64\\\\bin;\" + $env:PATH; $result = & \"C:\\\\msys64\\\\mingw64\\\\bin\\\\mingw32-make.exe\" -C \"E:\\\\map-renderer\\\\build\" 2>&1; $result | ForEach-Object { $_.ToString\\(\\) })",
-      "PowerShell($env:PATH = \"C:\\\\msys64\\\\mingw64\\\\bin;\" + $env:PATH; & \"C:\\\\msys64\\\\mingw64\\\\bin\\\\mingw32-make.exe\" -C \"E:\\\\map-renderer\\\\build\" 2>&1 | ForEach-Object { $_.ToString\\(\\) })"
+      "PowerShell($env:PATH = \"C:\\\\msys64\\\\mingw64\\\\bin;\" + $env:PATH; & \"C:\\\\msys64\\\\mingw64\\\\bin\\\\mingw32-make.exe\" -C \"E:\\\\map-renderer\\\\build\" 2>&1 | ForEach-Object { $_.ToString\\(\\) })",
+      "PowerShell($env:PATH = \"C:\\\\msys64\\\\mingw64\\\\bin;\" + $env:PATH; & \"C:\\\\msys64\\\\mingw64\\\\bin\\\\mingw32-make.exe\" -C \"E:\\\\map-renderer\\\\build\" 2>&1 | ForEach-Object { $_.ToString\\(\\) }; New-Item -ItemType Directory -Force \"E:\\\\map-renderer\\\\build\\\\icons\" | Out-Null; Write-Host \"Папка icons создана\")"
     ]
   }
 }

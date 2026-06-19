@@ -106,7 +106,8 @@ void S57Loader::processDataset(GDALDataset* ds) {
                     depth = feat->GetFieldAsDouble(idx);
             }
 
-            processGeometry(geom, name, depth, layerType);
+            // Передаём className в processGeometry для сохранения в MapFeature::s57class
+            processGeometry(geom, name, depth, layerType, className);
             OGRFeature::DestroyFeature(feat);
         }
     }
@@ -182,7 +183,8 @@ bool S57Loader::loadFromBase64(const QString& base64) {
 }
 
 void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,
-                                 double depth, LayerType layer) {
+                                 double depth, LayerType layer,
+                                 const QString& s57class) {
     if (!geom) return;
 
     OGRwkbGeometryType gtype = wkbFlatten(geom->getGeometryType());
@@ -191,19 +193,20 @@ void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,
         case wkbPoint: {
             OGRPoint* pt = static_cast<OGRPoint*>(geom);
             MapFeature f;
-            f.geomType = MapFeature::Point;
+            f.geomType  = MapFeature::Point;
             f.points.append(QPointF(pt->getX(), pt->getY()));
-            f.name = name;
-            f.layer = layer;
-            f.depth = (geom->getGeometryType() == wkbPoint25D)
-                      ? pt->getZ() : depth;
+            f.name      = name;
+            f.layer     = layer;
+            f.s57class  = s57class;
+            f.depth     = (geom->getGeometryType() == wkbPoint25D)
+                          ? pt->getZ() : depth;
             m_features.append(f);
             break;
         }
         case wkbMultiPoint: {
             OGRMultiPoint* mp = static_cast<OGRMultiPoint*>(geom);
             for (int j = 0; j < mp->getNumGeometries(); j++)
-                processGeometry(mp->getGeometryRef(j), name, depth, layer);
+                processGeometry(mp->getGeometryRef(j), name, depth, layer, s57class);
             break;
         }
         case wkbLineString: {
@@ -212,9 +215,10 @@ void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,
             f.geomType = MapFeature::Line;
             for (int j = 0; j < ls->getNumPoints(); j++)
                 f.points.append(QPointF(ls->getX(j), ls->getY(j)));
-            f.name = name;
-            f.layer = layer;
-            f.depth = depth;
+            f.name     = name;
+            f.layer    = layer;
+            f.s57class = s57class;
+            f.depth    = depth;
             if (!f.points.isEmpty())
                 m_features.append(f);
             break;
@@ -222,7 +226,7 @@ void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,
         case wkbMultiLineString: {
             OGRMultiLineString* mls = static_cast<OGRMultiLineString*>(geom);
             for (int j = 0; j < mls->getNumGeometries(); j++)
-                processGeometry(mls->getGeometryRef(j), name, depth, layer);
+                processGeometry(mls->getGeometryRef(j), name, depth, layer, s57class);
             break;
         }
         case wkbPolygon: {
@@ -233,9 +237,10 @@ void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,
             f.geomType = MapFeature::Area;
             for (int j = 0; j < ring->getNumPoints(); j++)
                 f.points.append(QPointF(ring->getX(j), ring->getY(j)));
-            f.name = name;
-            f.layer = layer;
-            f.depth = depth;
+            f.name     = name;
+            f.layer    = layer;
+            f.s57class = s57class;
+            f.depth    = depth;
             if (!f.points.isEmpty())
                 m_features.append(f);
             break;
@@ -243,7 +248,7 @@ void S57Loader::processGeometry(OGRGeometry* geom, const QString& name,
         case wkbMultiPolygon: {
             OGRMultiPolygon* mpoly = static_cast<OGRMultiPolygon*>(geom);
             for (int j = 0; j < mpoly->getNumGeometries(); j++)
-                processGeometry(mpoly->getGeometryRef(j), name, depth, layer);
+                processGeometry(mpoly->getGeometryRef(j), name, depth, layer, s57class);
             break;
         }
         default:
